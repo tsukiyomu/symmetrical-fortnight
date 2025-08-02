@@ -22,7 +22,7 @@ class RequestBase:
         self.run = SendRequest()
         self.conf = OperationConfig()
         self.read = ReadYamlData()
-        self.asserts = Assertions()
+        self. asserts = Assertions()
         self.extract_utils = ExtractUtils()
 
     def replace_load(self, data):
