@@ -137,6 +137,58 @@ class Assertions:
             if not business_error.retryable:
                 raise BusinessAssertionError(business_error)
 
+    def _safe_jsonpath_extract(self, response: Dict[str, Any], path: str) -> List[Any]:
+        """彻底解决JSONPath不确定性"""
+        try:
+            result = jsonpath.jsonpath(response, path)
+            
+            # 处理 False/None 返回值
+            if result is False or result is None:
+                return []
+            
+            # 确保返回列表格式
+            if not isinstance(result, list):
+                return [result]
+            
+            # 展平嵌套列表
+            flattened = []
+            for item in result:
+                if isinstance(item, list):
+                    flattened.extend(item)  # 展平一层嵌套
+                else:
+                    flattened.append(item)
+            
+            return flattened
+            
+        except Exception as e:
+            logs.error(f"JSONPath异常：{e}")
+            return []
+
+    def _universal_contains_check(self, extracted_values: List[Any], assert_value: Any) -> tuple[bool, str]:
+        """通用的包含检查，处理所有类型"""
+        processed_assert = None if str(assert_value).upper() == 'NONE' else assert_value
+        
+        for value in extracted_values:
+            try:
+                # None值特殊处理
+                if processed_assert is None:
+                    if value is None:
+                        return True, f"匹配None值"
+                    continue
+                
+                # 统一转字符串比较（最安全）
+                value_str = str(value) if value is not None else "None"
+                assert_str = str(processed_assert)
+                
+                if assert_str in value_str:
+                    return True, f"匹配：{value} (类型：{type(value).__name__})"
+                    
+            except Exception as e:
+                logs.warning(f"值比较异常：{value}, 错误：{e}")
+                continue
+        
+        return False, f"无匹配，所有值：{extracted_values}"
+
     def contains_assert(self, value: Dict[str, Any], response: Dict[str, Any], status_code: int) -> int:
         """
         字符串包含断言模式，断言预期结果的字符串是否包含在接口的响应信息中
@@ -156,24 +208,25 @@ class Assertions:
                     self._log_assertion_failure("响应代码断言", assert_value, status_code)
                     logs.error(f"contains断言失败：接口返回码【{status_code}】不等于【{assert_value}】")
             else:
-                resp_list = jsonpath.jsonpath(response, f"$..{assert_key}")
-                if not resp_list:
+                # 使用优化的JSONPath提取
+                extracted_values = self._safe_jsonpath_extract(response, f"$..{assert_key}")
+                if not extracted_values:
                     flag += 1
                     self._log_assertion_failure("响应文本断言", assert_value, "未找到匹配字段")
                     logs.error(f"响应文本断言失败：未找到字段【{assert_key}】")
                     continue
                 
-                if isinstance(resp_list[0], str):
-                    resp_list = ''.join(resp_list)
-                
-                assert_value = None if str(assert_value).upper() == 'NONE' else assert_value
-                if assert_value in resp_list:
-                    logs.info(f"字符串包含断言成功：预期结果【{assert_value}】,实际结果【{resp_list}】")
+                # 使用通用的包含检查
+                success, message = self._universal_contains_check(extracted_values, assert_value)
+                if success:
+                    logs.info(f"字符串包含断言成功：{message}")
                 else:
                     flag += 1
-                    self._log_assertion_failure("响应文本断言", assert_value, resp_list)
-                    logs.error(f"响应文本断言失败：预期结果为【{assert_value}】,实际结果为【{resp_list}】")
+                    self._log_assertion_failure("响应文本断言", assert_value, extracted_values)
+                    logs.error(f"响应文本断言失败：{message}")
         return flag
+    
+
 
     def equal_assert(self, expected_results: Dict[str, Any], actual_results: Dict[str, Any], status_code: Optional[int] = None) -> int:
         """
