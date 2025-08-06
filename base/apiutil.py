@@ -18,12 +18,14 @@ from conf.setting import FILE_PATH
 
 class RequestBase:
 
+ 
     def __init__(self):
-        self.run = SendRequest()
-        self.conf = OperationConfig()
-        self.read = ReadYamlData()
-        self. asserts = Assertions()
-        self.extract_utils = ExtractUtils()
+        # 初始化请求发送、配置读取、yaml读写、断言与数据提取工具
+        self.run = SendRequest()              # HTTP请求执行器
+        self.conf = OperationConfig()         # 配置读取（如环境host）
+        self.read = ReadYamlData()            # YAML读写工具
+        self.asserts = Assertions()          # 断言工具
+        self.extract_utils = ExtractUtils()   # 提取工具
 
     def replace_load(self, data):
         """yaml数据替换解析"""
@@ -37,54 +39,77 @@ class RequestBase:
         :return:
         """
         try:
+            # 支持 data, json, params 三种参数类型
             params_type = ['data', 'json', 'params']
+           # 1. 构造请求 URL
             url_host = self.conf.get_section_for_data('api_envi', 'host')
             api_name = base_info['api_name']
-            allure.attach(api_name, f'接口名称：{api_name}', allure.attachment_type.TEXT)
             url = url_host + base_info['url']
+
+            allure.attach(api_name, f'接口名称：{api_name}', allure.attachment_type.TEXT)
             allure.attach(api_name, f'接口地址：{url}', allure.attachment_type.TEXT)
             method = base_info['method']
             allure.attach(api_name, f'请求方法：{method}', allure.attachment_type.TEXT)
+
+             # 2. 准备请求头和 Cookie
             header = self.replace_load(base_info['header'])
             allure.attach(api_name, f'请求头：{header}', allure.attachment_type.TEXT)
             # 处理cookie
             cookie = None
             if base_info.get('cookies') is not None:
                 cookie = eval(self.replace_load(base_info['cookies']))
+
+             # 3. 用例名称 & 验证规则
             case_name = test_case.pop('case_name')
             allure.attach(api_name, f'测试用例名称：{case_name}', allure.attachment_type.TEXT)
             # 处理断言
             val = self.replace_load(test_case.get('validation'))
             test_case['validation'] = val
             validation = eval(test_case.pop('validation'))
-            # 处理参数提取
+
+            # 4. 处理参数提取
             extract = test_case.pop('extract', None)
             extract_list = test_case.pop('extract_list', None)
-            # 处理接口的请求参数
+            # 5. 处理请求参数（data/json/params）
             for key, value in test_case.items():
                 if key in params_type:
                     test_case[key] = self.replace_load(value)
 
-            # 处理文件上传接口
+            # 6. 文件上传支持
             file, files = test_case.pop('files', None), None
             if file is not None:
                 for fk, fv in file.items():
                     allure.attach(json.dumps(file), '导入文件')
                     files = {fk: open(fv, mode='rb')}
-
-            res = self.run.run_main(name=api_name, url=url, case_name=case_name, header=header, method=method,
-                                    file=files, cookies=cookie, **test_case)
+            # 7. 发送 HTTP 请求
+            res = self.run.run_main(
+                name=api_name,
+                url=url,
+                case_name=case_name,
+                header=header,
+                method=method,
+                file=files,
+                cookies=cookie,
+                **test_case
+            )
             status_code = res.status_code
-            allure.attach(self.allure_attach_response(res.json()), '接口响应信息', allure.attachment_type.TEXT)
-
+            # 把原始 JSON 响应附加到 Allure
+            allure.attach(
+                self.allure_attach_response(res.json()),
+                '接口响应信息',
+                allure.attachment_type.TEXT
+            )
             try:
-                res_json = json.loads(res.text)  # 把json格式转换成字典字典
+                # 解析响应文本为 dict
+                res_json = json.loads(res.text)
+                # 8. 数据提取
                 if extract is not None:
                     self.extract_utils.extract_data(extract, res.text)
                 if extract_list is not None:
                     self.extract_utils.extract_data_list(extract_list, res.text)
-                # 处理断言
+                # 9. 执行断言
                 self.asserts.assert_result(validation, res_json, status_code)
+
             except JSONDecodeError as js:
                 logs.error('系统异常或接口未请求！')
                 raise js
@@ -93,10 +118,14 @@ class RequestBase:
                 raise e
 
         except Exception as e:
+            # 捕获整体流程的任何异常并抛出
             raise e
 
     @classmethod
     def allure_attach_response(cls, response):
+        """
+        将返回的 JSON 对象格式化为漂亮的字符串，方便在报告中阅读
+        """
         if isinstance(response, dict):
             allure_response = json.dumps(response, ensure_ascii=False, indent=4)
         else:
@@ -108,6 +137,7 @@ class RequestBase:
 
 
 if __name__ == '__main__':
+     # 从 YAML 加载首个用例并执行验证方法
     case_info = get_testcase_yaml(FILE_PATH['YAML'] + '/LoginAPI/login.yaml')[0]
     # print(case_info)
     req = RequestBase()
