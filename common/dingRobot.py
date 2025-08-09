@@ -4,6 +4,7 @@ import time
 import hmac
 import hashlib
 import base64
+from common.recordlog import logs
 
 
 def generate_sign():
@@ -16,7 +17,7 @@ def generate_sign():
     # 当前时间戳
     timestamp = str(round(time.time() * 1000))
     # 钉钉机器人中的加签密钥
-    secret = '123'
+    secret = 'SEC93839e9bf7f21dcf119da06e3a8a7c2abbf15285324c9d50a707faca3fbeda6d'
     secret_enc = secret.encode('utf-8')
     str_to_sign = '{}\n{}'.format(timestamp, secret)
     # 转成byte类型
@@ -35,8 +36,9 @@ def send_dd_msg(content_str, at_all=True):
     """
     timestamp_and_sign = generate_sign()
     # url(钉钉机器人Webhook地址) + timestamp + sign
-    url = f'https://oapi.dingtalk.com/robot/send?access_token=75d6628cefedc8225695dcde2577f03336f0099cd16d93988a68ad243cf9dd6f&timestamp={timestamp_and_sign[0]}&sign={timestamp_and_sign[1]}'
+    url = f'https://oapi.dingtalk.com/robot/send?access_token=8f38193f5d2af46999717bf6fd5572e2a8b1fbec96f65fb28f158b27c06e975a&timestamp={timestamp_and_sign[0]}&sign={timestamp_and_sign[1]}'
     headers = {'Content-Type': 'application/json;charset=utf-8'}
+    
     data = {
         "msgtype": "text",
         "text": {
@@ -46,5 +48,11 @@ def send_dd_msg(content_str, at_all=True):
             "isAtAll": at_all
         },
     }
-    res = requests.post(url, json=data, headers=headers)
-    return res.text
+    try:
+        logs.info("调用钉钉Webhook发送通知...")
+        res = requests.post(url, json=data, headers=headers, timeout=10)
+        logs.info(f"钉钉响应状态码: {res.status_code}")
+        return res.text
+    except Exception as ex:
+        logs.error(f"调用钉钉Webhook失败: {ex}")
+        raise

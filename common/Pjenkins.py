@@ -2,6 +2,7 @@ import json
 import re
 
 import jenkins
+from jenkins import JenkinsException
 from conf.operationConfig import OperationConfig
 
 
@@ -16,8 +17,26 @@ class PJenkins(object):
             'timeout': int(self.conf.get_section_jenkins('timeout'))
         }
         self.__server = jenkins.Jenkins(**self.__config)
-
         self.job_name = self.conf.get_section_jenkins('job_name')
+
+    def test_connection(self):
+        """验证与Jenkins的连接是否成功"""
+        try:
+            user_info = self.__server.get_whoami()
+            print("✅ 成功连接到Jenkins！")
+            print(f"  Jenkins URL: {self.__config['url']}")
+            print(f"  登录用户: {user_info.get('fullName', self.__config['username'])}")
+            return True
+        except JenkinsException as e:
+            print(f"❌ 连接Jenkins失败：{str(e)}")
+            if "Connection refused" in str(e):
+                print(f"  可能原因：Jenkins服务未启动，或URL/端口错误（当前URL：{self.__config['url']}）")
+            elif "Authentication failed" in str(e):
+                print(f"  可能原因：用户名/密码错误（当前用户：{self.__config['username']}）")
+            return False
+        except Exception as e:
+            print(f"❌ 未知错误：{str(e)}")
+            return False
 
     def get_job_number(self):
         """读取jenkins job构建号"""
@@ -76,7 +95,16 @@ class PJenkins(object):
 
 if __name__ == '__main__':
     p = PJenkins()
-    res = p.report_success_or_fail()
+    # 优先执行连接测试
+    if p.test_connection():
+        # 连接成功后可执行其他操作（可选）
+        print("\n开始执行其他操作...")
+        try:
+            res = p.report_success_or_fail()
+            print("测试报告信息：", res)
+        except Exception as e:
+            print(f"执行操作失败：{str(e)}")
+    else:
+        print("请先解决连接问题再执行其他操作。")
     # result = re.search(r'http://192.168.105.36:8088/job/hbjjapi/(.*?)allure', res).group(0)
-    print(res)
     # print(result)

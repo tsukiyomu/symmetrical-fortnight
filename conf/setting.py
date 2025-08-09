@@ -19,7 +19,10 @@ SHEET_ID = 0
 REPORT_TYPE = 'allure'
 
 # 是否发送钉钉消息
-dd_msg = False
+dd_msg = True
+
+# 是否发送邮件
+email_msg = True
 
 # 文件路径
 FILE_PATH = {

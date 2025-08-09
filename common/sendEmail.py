@@ -53,8 +53,11 @@ class SendEmail(object):
             message.attach(atta)
 
         try:
+            logs.info(f"准备连接SMTP服务器: {self.__host}")
             service = smtplib.SMTP_SSL(self.__host)
+            logs.info(f"登录SMTP账户: {self.__user}")
             service.login(self.__user, self.__passwd)
+            logs.info(f"发送邮件到: {addressee}")
             service.sendmail(user, addressee, message.as_string())
         except smtplib.SMTPConnectError as e:
             logs.error('邮箱服务器连接失败！', e)
@@ -65,7 +68,7 @@ class SendEmail(object):
         except smtplib.SMTPDataError as e:
             logs.error('发送的邮件内容包含了未被许可的信息，或被系统识别为垃圾邮件！', e)
         except Exception as e:
-            logs.error(e)
+            logs.exception(e)
         else:
             logs.info('邮件发送成功!')
             service.quit()

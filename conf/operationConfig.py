@@ -82,3 +82,7 @@ class OperationConfig:
 
     def get_section_ssh(self, option):
         return self.get_section_for_data("SSH", option)
+
+    def get_section_jenkins(self, option):
+        """读取 JENKINS 配置项，如 url/username/password/timeout/job_name"""
+        return self.get_section_for_data("JENKINS", option)
