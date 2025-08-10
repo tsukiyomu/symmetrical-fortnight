@@ -20,6 +20,9 @@ import warnings
 yfd = ReadYamlData()
 
 
+# session级别的fixture，在整个测试会话开始前自动执行一次
+# scope="session" 表示作用域为整个测试会话
+# autouse=True 表示自动使用，无需在测试函数中显式调用
 @pytest.fixture(scope="session", autouse=True)
 def clear_extract():
     # 禁用HTTPS告警，ResourceWarning
@@ -56,6 +59,10 @@ def generate_test_summary(terminalreporter):
     """
     print(summary)
     return summary
+
+# pytest钩子函数：在所有测试执行完成后的终端摘要阶段自动调用
+# 这不是继承，而是实现pytest框架定义的标准钩子函数
+# pytest_terminal_summary是pytest预定义的钩子函数名，框架会在特定时机自动调用
 def pytest_terminal_summary(terminalreporter, exitstatus, config):
     """自动收集pytest框架执行的测试结果并打印摘要信息"""
     summary = generate_test_summary(terminalreporter)
