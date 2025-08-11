@@ -108,12 +108,16 @@ class SendRequest:
             logs.info("接口返回信息：%s" % result.text if result.text else result)
         except requests.exceptions.ConnectionError:
             logs.error("ConnectionError--连接异常")
-            pytest.fail("接口请求异常，可能是request的连接数过多或请求速度过快导致程序报错！")
+            # 不直接终止整个测试流程，而是记录错误并返回None
+            logs.error("接口请求异常，可能是request的连接数过多或请求速度过快导致程序报错！")
+            return None
         except requests.exceptions.HTTPError:
             logs.error("HTTPError--http异常")
         except requests.exceptions.RequestException as e:
             logs.error(e)
-            pytest.fail("请求异常，请检查系统或数据是否正常！")
+            # 不直接终止整个测试流程，而是记录错误并返回None
+            logs.error("请求异常，请检查系统或数据是否正常！")
+            return None
         return result
 
     def run_main(self, name, url, case_name, header, method, cookies=None, file=None, **kwargs):

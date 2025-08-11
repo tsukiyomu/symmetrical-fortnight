@@ -35,10 +35,11 @@ class OperationConfig:
         items = self.conf.items(section_name)
         return dict(items)
 
-    def get_section_for_data(self, section, option):
+    def get_section_for_data(self, section, option, default=''):
         """
         :param section: ini文件头部值
-        :param option:头部值下面的选项
+        :param option: 头部值下面的选项
+        :param default: 默认值
         :return:
         """
         try:
@@ -46,7 +47,7 @@ class OperationConfig:
             return values
         except Exception as e:
             logs.error(str(traceback.format_exc()))
-            return ''
+            return default
 
     def write_config_data(self, section, option_key, option_value):
         """
@@ -86,3 +87,7 @@ class OperationConfig:
     def get_section_jenkins(self, option):
         """读取 JENKINS 配置项，如 url/username/password/timeout/job_name"""
         return self.get_section_for_data("JENKINS", option)
+
+    def get_section_dingtalk(self, option):
+        """读取钉钉机器人配置项"""
+        return self.get_section_for_data("DINGTALK", option)
