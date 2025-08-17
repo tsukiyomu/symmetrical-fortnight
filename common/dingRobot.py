@@ -147,10 +147,10 @@ class TextMessageBuilder(MessageBuilder):
 
         message = {
             "msgtype": MessageType.TEXT.value,
-            "text": {
+        "text": {
                 "content": content
-            },
-            "at": {
+        },
+        "at": {
                 "isAtAll": is_at_all
             }
         }

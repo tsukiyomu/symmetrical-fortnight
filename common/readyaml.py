@@ -96,6 +96,7 @@ class ReadYamlData:
         :return:
         """
         if os.path.exists(FILE_PATH['EXTRACT']):
+
             pass
         else:
             logs.error('extract.yaml不存在')

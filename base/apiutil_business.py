@@ -1,3 +1,17 @@
+"""
+apiutil_business: 接口工具类（业务场景）
+为业务编排场景的测试用例提供执行入口和工具方法，支持多步骤接口测试流程
+
+主要功能:
+- 提供业务场景测试用例的执行入口
+- 支持多个接口调用的编排执行
+- 复用RequestCore核心执行逻辑
+- 提供数据替换和响应处理工具方法
+
+Author: tsukiyomi
+Create Date: 2025
+"""
+
 from base.request_core import RequestCore
 
 

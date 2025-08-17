@@ -5,7 +5,7 @@ YAML数据处理工具类
 """
 import json
 import traceback
-from common.debugtalk import DebugTalk
+from common.TestDataUtils import TestDataUtils
 from common.recordlog import logs
 
 
@@ -39,8 +39,8 @@ class YamlUtils:
                 func_name = ref_all_params[2:ref_all_params.index("(")]
                 # 提取函数参数
                 func_params = ref_all_params[ref_all_params.index("(") + 1:ref_all_params.index(")")]
-                # 动态调用DebugTalk中的方法获取替换值
-                extract_data = getattr(DebugTalk(), func_name)(*func_params.split(',') if func_params else "")
+                # 动态调用TestDataUtils中的方法获取替换值
+                extract_data = getattr(TestDataUtils(), func_name)(*func_params.split(',') if func_params else "")
                 
                 # 处理列表类型的返回值
                 if extract_data and isinstance(extract_data, list):
@@ -79,4 +79,4 @@ class YamlUtils:
             return data_dict
         except Exception:
             logs.error(str(traceback.format_exc()))
-            return data_dict 
+            return data_dict

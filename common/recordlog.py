@@ -41,6 +41,7 @@ class RecordLog:
 
     def output_logging(self):
         """获取logger对象"""
+
         logger = logging.getLogger(__name__)
         # 防止重复打印日志
         if not logger.handlers:

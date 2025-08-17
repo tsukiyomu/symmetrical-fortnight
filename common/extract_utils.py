@@ -46,7 +46,9 @@ class ExtractUtils:
                 # 处理json提取参数
                 if "$" in value:
                     try:
+                        # 第一步：字符串转JSON对象
                         ext_json = jsonpath.jsonpath(json.loads(response), value)
+                        # 第二步：使用JSONPath提取数据
                         if ext_json and len(ext_json) > 0:
                             extract_date = {key: ext_json[0]}
                         else:

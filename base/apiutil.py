@@ -1,3 +1,17 @@
+"""
+apiutil: 接口工具类（单用例场景）
+为单接口测试用例提供统一的执行入口和工具方法，是接口测试框架的基础组件之一
+
+主要功能:
+- 提供单接口测试用例的执行入口
+- 适配原有单用例调用签名
+- 复用RequestCore核心执行逻辑
+- 提供数据替换和响应处理工具方法
+
+Author: tsukiyomi
+Create Date: 2025
+"""
+
 from base.request_core import RequestCore
 
 

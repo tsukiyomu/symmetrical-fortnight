@@ -1,3 +1,16 @@
+"""
+removefile: 文件和目录删除工具
+提供文件和目录删除功能，主要用于测试前清理环境或测试后清理临时文件
+
+主要功能:
+- 根据文件后缀名删除指定类型的文件
+- 删除指定目录
+- 提供异常处理和日志记录
+
+Author: tsukiyomi
+Create Date: 2025
+"""
+
 import os
 from common.recordlog import logs
 

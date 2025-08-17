@@ -99,6 +99,18 @@ class Assertions:
             "PRODUCT_OUT_OF_STOCK": BusinessError(BusinessErrorType.BUSINESS_LOGIC_ERROR, "PRODUCT_OUT_OF_STOCK", "商品库存不足"),
         }
 
+    # ===== 初始化和配置方法 =====
+    
+    def add_business_error_mapping(self, error_code: str, business_error: BusinessError) -> None:
+        """添加自定义业务错误映射"""
+        self._business_error_mapping[error_code] = business_error
+
+    def add_business_logic_error(self, error_code: str, business_error: BusinessError) -> None:
+        """添加自定义业务逻辑错误"""
+        self._business_logic_errors[error_code] = business_error
+
+    # ===== 内部工具方法 =====
+    
     def _get_business_error(self, status_code: int, response_data: Optional[Dict] = None) -> Optional[BusinessError]:
         """根据状态码和响应数据获取业务错误信息"""
         # 检查HTTP状态码
@@ -189,6 +201,24 @@ class Assertions:
         
         return False, f"无匹配，所有值：{extracted_values}"
 
+    def _log_assertion_success(self, assertion_type: str, expected: Any, actual: Any) -> None:
+        """记录断言成功日志"""
+        allure.attach(
+            f"预期结果：{expected}\n实际结果：{actual}", 
+            f'{assertion_type}结果：成功',
+            attachment_type=allure.attachment_type.TEXT
+        )
+
+    def _log_assertion_failure(self, assertion_type: str, expected: Any, actual: Any) -> None:
+        """记录断言失败日志"""
+        allure.attach(
+            f"预期结果：{expected}\n实际结果：{actual}", 
+            f'{assertion_type}结果：失败',
+            attachment_type=allure.attachment_type.TEXT
+        )
+
+    # ===== 各种断言方法 =====
+    
     def contains_assert(self, value: Dict[str, Any], response: Dict[str, Any], status_code: int) -> int:
         """
         字符串包含断言模式，断言预期结果的字符串是否包含在接口的响应信息中
@@ -225,8 +255,6 @@ class Assertions:
                     self._log_assertion_failure("响应文本断言", assert_value, extracted_values)
                     logs.error(f"响应文本断言失败：{message}")
         return flag
-    
-
 
     def equal_assert(self, expected_results: Dict[str, Any], actual_results: Dict[str, Any], status_code: Optional[int] = None) -> int:
         """
@@ -290,30 +318,44 @@ class Assertions:
             self._log_assertion_failure("不相等断言", expected_results, new_actual_results)
         return flag
 
-    def assert_response_any(self, actual_results: Dict[str, Any], expected_results: Dict[str, Any]) -> int:
+    def assert_response_any(self, expected_results: Dict[str, Any], actual_results: Dict[str, Any]) -> int:
         """
         断言接口响应信息中的body的任何属性值
+        :param expected_results: 预期结果，yaml文件的预期值
         :param actual_results: 接口实际响应信息
-        :param expected_results: 预期结果，在接口返回值的任意值
         :return: 返回标识,0表示测试通过，非0则测试失败
         """
         flag = 0
         try:
-            exp_key = list(expected_results.keys())[0]
-            if exp_key in actual_results:
-                act_value = actual_results[exp_key]
-                exp_value = list(expected_results.values())[0]
-                if operator.eq(act_value, exp_value):
-                    logs.info("响应结果任意值断言成功")
+            # 支持多个键值对断言
+            for exp_key, exp_value in expected_results.items():
+                if exp_key in actual_results:
+                    act_value = actual_results[exp_key]
+                    # 支持JSONPath表达式
+                    if isinstance(act_value, str) and act_value.startswith("$."):
+                        extracted_values = self._safe_jsonpath_extract(actual_results, act_value)
+                        if not extracted_values:
+                            flag += 1
+                            self._log_assertion_failure("响应文本断言", exp_value, "未找到匹配字段")
+                            logs.error(f"响应文本断言失败：未找到字段【{exp_key}】")
+                            continue
+                        act_value = extracted_values[0]
+                    
+                    if operator.eq(act_value, exp_value):
+                        self._log_assertion_success("响应结果任意值断言", exp_value, act_value)
+                        logs.info(f"响应结果任意值断言成功：{exp_key}={act_value}")
+                    else:
+                        flag += 1
+                        self._log_assertion_failure("响应结果任意值断言", exp_value, act_value)
+                        logs.error(f"响应结果任意值断言失败：{exp_key}预期值={exp_value}，实际值={act_value}")
                 else:
                     flag += 1
-                    logs.error("响应结果任意值断言失败")
-            else:
-                flag += 1
-                logs.error(f"响应结果任意值断言失败：未找到键【{exp_key}】")
+                    self._log_assertion_failure("响应结果任意值断言", exp_key, "未找到键")
+                    logs.error(f"响应结果任意值断言失败：未找到键【{exp_key}】")
         except Exception as e:
             logs.error(f"响应结果任意值断言异常：{e}")
-            raise AssertionError(f"响应结果任意值断言异常：{e}")
+            logs.error(traceback.format_exc())
+            raise AssertionError(f"响应结果任意值断言异常：{e}") from e
         return flag
 
     def assert_response_time(self, res_time: float, exp_time: float) -> bool:
@@ -350,9 +392,11 @@ class Assertions:
             logs.error(f"数据库断言异常：{e}")
         return flag
 
+    # ===== 主断言执行方法 =====
+    
     def assert_result(self, expected: List[Dict[str, Any]], response: Dict[str, Any], status_code: int) -> None:
         """
-        断言，通过断言all_flag标记，all_flag==0表示测试通过，否则为失败
+        断言入口方法，负责整体断言流程控制和异常处理
         :param expected: 预期结果
         :param response: 实际响应结果
         :param status_code: 响应code码
@@ -374,16 +418,28 @@ class Assertions:
             raise AssertionError(f'接口断言异常: {exceptions}') from exceptions
 
     def _execute_assertions(self, expected: List[Dict[str, Any]], response: Dict[str, Any], status_code: int) -> None:
-        """执行断言逻辑"""
+        """
+        具体断言执行方法，负责遍历并执行各种类型的断言
+        与assert_result的关系：作为assert_result的辅助方法，在assert_result中被调用，
+        专门负责断言的具体执行逻辑
+        :param expected: 预期结果列表
+        :param response: 实际响应结果
+        :param status_code: 响应状态码
+        """
         all_flag = 0
         
+        # 遍历所有预期结果
         for yq in expected:
+            # 遍历每个断言项
             for key, value in yq.items():
                 try:
+                    # 获取断言类型
                     assertion_type = AssertionType(key)
+                    # 获取对应的断言策略
                     strategy = self._assertion_strategies.get(assertion_type)
                     
                     if strategy:
+                        # 根据断言类型调用相应的断言方法
                         if assertion_type == AssertionType.RESPONSE_VALUE:
                             flag = strategy(actual_results=response, expected_results=value)
                         elif assertion_type == AssertionType.DATABASE:
@@ -396,33 +452,10 @@ class Assertions:
                 except ValueError:
                     logs.error(f"不支持的断言类型: {key}")
 
+        # 根据断言结果判断测试是否通过
         if all_flag == 0:
             logs.info("测试成功")
             assert True
         else:
             logs.error(f"测试失败，失败数量: {all_flag}")
             assert False
-
-    def _log_assertion_success(self, assertion_type: str, expected: Any, actual: Any) -> None:
-        """记录断言成功日志"""
-        allure.attach(
-            f"预期结果：{expected}\n实际结果：{actual}", 
-            f'{assertion_type}结果：成功',
-            attachment_type=allure.attachment_type.TEXT
-        )
-
-    def _log_assertion_failure(self, assertion_type: str, expected: Any, actual: Any) -> None:
-        """记录断言失败日志"""
-        allure.attach(
-            f"预期结果：{expected}\n实际结果：{actual}", 
-            f'{assertion_type}结果：失败',
-            attachment_type=allure.attachment_type.TEXT
-        )
-
-    def add_business_error_mapping(self, error_code: str, business_error: BusinessError) -> None:
-        """添加自定义业务错误映射"""
-        self._business_error_mapping[error_code] = business_error
-
-    def add_business_logic_error(self, error_code: str, business_error: BusinessError) -> None:
-        """添加自定义业务逻辑错误"""
-        self._business_logic_errors[error_code] = business_error

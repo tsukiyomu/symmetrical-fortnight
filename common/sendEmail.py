@@ -12,8 +12,18 @@ from conf.operationConfig import OperationConfig
 from common.recordlog import logs
 
 """
-sendEmail：往邮箱发送测试结果
+sendEmail: 往邮箱发送测试结果邮件
+提供测试报告邮件发送功能，支持附件和多种配置选项
+
+主要功能:
+- 支持SMTP SSL连接方式发送邮件
+- 支持邮件配置管理
+- 支持测试结果统计和报告生成
+- 支持附件发送
+- 提供详细的日志记录
+
 Author: tsukiyomi
+Create Date: 2025
 """
 class EmailConfig:
     """邮件配置管理类"""
